@@ -1,44 +1,50 @@
-﻿using HtmlAgilityPack;
+using HtmlAgilityPack;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Net;
-using System.Text;
 
-namespace app
+namespace quick_app
 {
     class Program
     {
-        const String path = @"text.txt";
-        const String web = "https://www.auchandirect.pl";
+        const string url = "https://www.auchandirect.pl/auchan-warszawa/pl/search?text=pepsi+cola";
         static void Main(string[] args)
         {
-            Item[] items = new Item[200];
-            HtmlDocument document = new HtmlDocument();
-            document.Load(path);
-            int i = 0;
-            foreach (HtmlNode node in document.DocumentNode.SelectNodes("//div[@id='search-product-list']/article"))
+            List<string> item = new List<string>();
+            HtmlWeb htmlWeb = new HtmlWeb();
+
+            var doc = Request.GetPage(url);
+            var products = doc.DocumentNode.SelectNodes("//div[@id='search-product-list']/article");
+            foreach (var prod in products)
             {
-                items[i] = new Item();
-                items[i].tittle= node.SelectNodes("//div[@class='content']/div[@class='description']/a")[i].Attributes["title"].Value;
-                items[i].price = Double.Parse(node.SelectNodes("//p[@class='standard']/span[@class='p-nb']")[i].InnerText) 
-                    + Double.Parse(node.SelectNodes("//aside[@class='prices']/p[@class='standard']/span[@class='p-cents']")[i].InnerText)/100;
-                items[i].packaging = node.SelectNodes("//div[@class = 'description'] / p[@class = 'packaging']/strong")[i].InnerText;
-                items[i].imagePath=web+ node.SelectNodes("//div[@class='picture']/img")[i].GetAttributeValue("data-src","nothing");
-                i++;
+                item.Add("title:" + prod.SelectSingleNode(".//div[@class='content']/div[@class='description']/a").Attributes["title"].Value);
+                item.Add("price:" + (prod.SelectSingleNode(".//aside[contains(@class, 'prices')]/p[contains(@class, 'standard')]/span[contains(@class, 'p-nb')]").InnerText +
+                    "." + prod.SelectSingleNode(".//aside[@class='prices']/p[@class='standard']/span[@class='p-cents']").InnerText));
+                item.Add("packaging:" + prod.SelectSingleNode(".//div[@class = 'description'] / p[@class = 'packaging']/strong").InnerText);
+                item.Add("imagePath:" + prod.SelectSingleNode("..//div[@class='picture']/img").GetAttributeValue("data-src", "nothing"));
             }
-            Console.ReadLine(); // Make an breakpoint to see results 
         }
     }
-
-    class Item
+    class Request
     {
-        public string imagePath, tittle, packaging;
-        public double price;
-        public Item()
+        public static HtmlDocument GetPage(string url)
         {
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
+            request.AllowAutoRedirect = false;
+            request.Method = "GET";
+            request.Accept = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8";
+            request.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36";
+            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
 
+            var stream = response.GetResponseStream();
+            using (var reader = new StreamReader(stream))
+            {
+                var doc = new HtmlDocument();
+                string html = reader.ReadToEnd();
+                doc.LoadHtml(html);
+                return doc;
+            }
         }
     }
 }
